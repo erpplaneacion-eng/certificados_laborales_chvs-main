@@ -41,6 +41,17 @@ def read_root(request: Request):
 # ... (el resto del archivo main.py permanece exactamente igual) ...
 # (No es necesario que lo pegues aquí, solo asegúrate de que el resto del código siga ahí)
 
+@app.get("/search")
+def search_people_endpoint(query: str):
+    """
+    Busca personas por nombre o cédula.
+    Retorna una lista de candidatos {nombre, cedula}.
+    """
+    if not query or len(query.strip()) < 2:
+        return []
+    
+    return sheets_service.search_people(query)
+
 @app.post("/verificar-cedula")
 def verificar_cedula(cedula: str = Form(...)):
     """

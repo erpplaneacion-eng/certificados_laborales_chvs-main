@@ -9,6 +9,21 @@
   <body>
     <div class="container">
       <h1>Generar Certificados Laborales</h1>
+      
+      <!-- Sección de Búsqueda Rápida -->
+      <div class="search-container">
+        <h3>🔍 Buscar Empleado (Nombre o Cédula)</h3>
+        <div class="search-box">
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Escriba el nombre o cédula para buscar..." 
+            autocomplete="off"
+          >
+          <div id="searchResults" class="hidden"></div>
+        </div>
+      </div>
+
       <form action="/generar" method="post" id="certificateForm">
         <div class="form-group">
           <label for="cedula">Cédula:</label>

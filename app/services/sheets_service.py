@@ -2,22 +2,87 @@ from typing import Optional, Dict, List
 import re
 import difflib
 import unicodedata
+from datetime import datetime, timedelta
 from app.google_clients import get_gspread_client
 from app.config import settings
 
+# --- CACHE GLOBAL ---
+_CONTRACTS_CACHE: Optional[List[Dict]] = None
+_LAST_CACHE_UPDATE: Optional[datetime] = None
+CACHE_TTL_MINUTES = 15
+
+def _get_cached_contracts(force_refresh: bool = False) -> List[Dict]:
+    """
+    Obtiene los contratos desde la caché o los descarga de Google Sheets si es necesario.
+    """
+    global _CONTRACTS_CACHE, _LAST_CACHE_UPDATE
+    
+    now = datetime.now()
+    
+    # Si no hay caché, o forzamos refresco, o el TTL expiró
+    if (
+        _CONTRACTS_CACHE is None 
+        or force_refresh 
+        or (_LAST_CACHE_UPDATE and (now - _LAST_CACHE_UPDATE) > timedelta(minutes=CACHE_TTL_MINUTES))
+    ):
+        print("Refrescando caché de contratos desde Google Sheets...")
+        try:
+            gc = get_gspread_client()
+            sh = gc.open_by_key(settings.SHEET_ID)
+            ws = sh.worksheet("bd_contratacion")
+            _CONTRACTS_CACHE = ws.get_all_records()
+            _LAST_CACHE_UPDATE = now
+            print(f"Caché actualizada con {len(_CONTRACTS_CACHE)} registros.")
+        except Exception as e:
+            print(f"Error al actualizar caché: {e}")
+            # Si falla y tenemos caché vieja, la devolvemos como fallback
+            if _CONTRACTS_CACHE is None:
+                raise e
+                
+    return _CONTRACTS_CACHE
+
 def get_records_by_cedula(cedula: str) -> List[Dict]:
-    """Obtiene TODOS los registros de contratos para una cédula específica"""
-    gc = get_gspread_client()
-    sh = gc.open_by_key(settings.SHEET_ID)
-    ws = sh.worksheet("bd_contratacion")
-    rows = ws.get_all_records()
+    """Obtiene TODOS los registros de contratos para una cédula específica usando caché"""
+    rows = _get_cached_contracts()
     
     matching_records = []
+    cedula_str = str(cedula).strip()
+    
     for row in rows:
-        if str(row.get("cedula", "")).strip() == str(cedula).strip():
+        # Convertir a string y limpiar ambos lados para comparación segura
+        if str(row.get("cedula", "")).strip() == cedula_str:
             matching_records.append(row)
     
     return matching_records
+
+def search_people(query: str) -> List[Dict[str, str]]:
+    """
+    Busca personas por nombre o cédula.
+    Retorna lista única de {nombre, cedula}.
+    """
+    rows = _get_cached_contracts()
+    query_norm = remove_accents(query).upper().strip()
+    
+    results = {} # Usar dict para unicidad por cédula
+    
+    for row in rows:
+        nombre = str(row.get("Nombre del empleado", "")).strip()
+        cedula = str(row.get("cedula", "")).strip()
+        
+        if not nombre or not cedula:
+            continue
+            
+        nombre_norm = remove_accents(nombre).upper()
+        
+        # Coincidencia por cédula o nombre
+        if query_norm in cedula or query_norm in nombre_norm:
+            results[cedula] = {"nombre": nombre, "cedula": cedula}
+            
+            # Limitar a 20 resultados para no saturar la UI
+            if len(results) >= 20:
+                break
+                
+    return list(results.values())
 
 def get_company_info_lookup() -> Dict[str, Dict[str, str]]:
     """

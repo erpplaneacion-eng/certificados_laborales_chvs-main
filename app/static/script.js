@@ -1,3 +1,90 @@
+// Variable global para el debounce
+let searchTimeout = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    // Event listener para la búsqueda con debounce
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        
+        // Limpiar timeout anterior
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+
+        if (query.length < 2) {
+            searchResults.classList.add('hidden');
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        // Esperar 300ms antes de buscar
+        searchTimeout = setTimeout(() => {
+            performSearch(query);
+        }, 300);
+    });
+
+    // Cerrar resultados si se hace click fuera
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.classList.add('hidden');
+        }
+    });
+});
+
+async function performSearch(query) {
+    const searchResults = document.getElementById('searchResults');
+    
+    try {
+        const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
+        const results = await response.json();
+        
+        displayResults(results);
+    } catch (error) {
+        console.error('Error en búsqueda:', error);
+    }
+}
+
+function displayResults(results) {
+    const searchResults = document.getElementById('searchResults');
+    searchResults.innerHTML = '';
+    
+    if (results.length === 0) {
+        searchResults.innerHTML = '<div class="no-results">No se encontraron resultados</div>';
+    } else {
+        results.forEach(person => {
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            div.innerHTML = `
+                <span class="result-name">${person.nombre}</span>
+                <span class="result-cedula">C.C. ${person.cedula}</span>
+            `;
+            div.onclick = () => selectPerson(person.cedula);
+            searchResults.appendChild(div);
+        });
+    }
+    
+    searchResults.classList.remove('hidden');
+}
+
+function selectPerson(cedula) {
+    const searchInput = document.getElementById('searchInput');
+    const cedulaInput = document.getElementById('cedula');
+    const searchResults = document.getElementById('searchResults');
+    
+    // Rellenar el campo de cédula
+    cedulaInput.value = cedula;
+    
+    // Limpiar búsqueda
+    searchInput.value = '';
+    searchResults.classList.add('hidden');
+    
+    // Disparar la verificación
+    verificarCedula();
+}
+
 async function verificarCedula() {
   const cedulaInput = document.getElementById('cedula');
   const infoCargo = document.getElementById('info-cargo');
