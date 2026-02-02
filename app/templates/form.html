@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generar Certificados Laborales</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Generar Certificados Laborales</h1>
+      <form action="/generar" method="post" id="certificateForm">
+        <div class="form-group">
+          <label for="cedula">Cédula:</label>
+          <input 
+            type="text" 
+            id="cedula" 
+            name="cedula" 
+            required 
+            placeholder="Ingrese número de cédula"
+            onchange="verificarCedula()"
+          >
+        </div>
+
+        <!-- Información del cargo (oculta por defecto) -->
+        <div id="info-cargo" class="info-section hidden">
+          <h3>Información del Empleado</h3>
+          <p id="cargo-text"></p>
+
+          <!-- Selector de Tipo de Contrato -->
+          <div class="form-group">
+            <label for="tipo_contrato">Tipo de Contrato:</label>
+            <select id="tipo_contrato" name="tipo_contrato">
+              <option value="de Obra o Labor contratada">de Obra o Labor contratada</option>
+              <option value="a término Indefinido">A término Indefinido</option>
+              <option value="a término Fijo">A término Fijo</option>
+            </select>
+          </div>
+
+          <!-- Entrada de salario manual (oculta por defecto) -->
+          <div id="salario-manual-group" class="form-group hidden">
+            <label for="salario-manual">Salario Mensual (opcional):</label>
+            <input 
+              type="text" 
+              id="salario-manual" 
+              name="salario_manual" 
+              placeholder="Ejemplo: $2,400,000"
+            >
+            <small style="color: #666;">Deje vacío para usar el salario registrado en el sistema</small>
+          </div>
+        </div>
+
+        <button type="submit" id="submitBtn">Generar Certificados</button>
+      </form>
+    </div>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>
