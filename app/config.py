@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     debug: bool = True
     GOOGLE_CREDENTIALS_JSON: str
     SHEET_ID: str
+    SOLICITUDES_SHEET_ID: str  # Sheet donde llegan las solicitudes del Google Form
     DRIVE_FOLDER_ID: str
     PORT: int = 8000
 

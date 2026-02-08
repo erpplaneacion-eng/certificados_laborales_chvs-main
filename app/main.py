@@ -280,8 +280,8 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
             company_safe = canonical_company_name.replace(' ', '_').replace(',', '').replace('/', '_')
             pdf_filename = f"Certificado_{nombre_completo.replace(' ', '_')}_{company_safe}_{cedula}.pdf"
             
-            # Subir a Google Drive
-            file_info = drive_service.upload_pdf(pdf_bytes, pdf_filename)
+            # Subir a Google Drive (en carpeta personalizada por persona)
+            file_info = drive_service.upload_pdf(pdf_bytes, pdf_filename, nombre_completo, cedula)
             view_link = file_info.get("webViewLink")
             
             generated_files.append({
@@ -292,6 +292,9 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
             
         except Exception as e:
             # Si hay error con una empresa, continuar con las otras
+            print(f"ERROR al generar certificado para {canonical_company_name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             generated_files.append({
                 "empresa": canonical_company_name,
                 "filename": f"Error: {str(e)}",
@@ -459,3 +462,174 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
         </html>
     """)
     # --- FIN DEL BLOQUE DE RESPUESTA HTML MEJORADO ---
+
+@app.post("/procesar-solicitud")
+def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)):
+    """
+    Endpoint para procesar solicitudes automáticamente desde el trigger de Google Apps Script.
+
+    Args:
+        cedula: Número de cédula del empleado
+        fila: Número de fila en la hoja de Solicitud Certificados
+
+    Returns:
+        JSON con estado del procesamiento
+    """
+    try:
+        # 1. Buscar registros por cédula
+        records = sheets_service.get_records_by_cedula(cedula)
+        if not records:
+            sheets_service.actualizar_estado_solicitud(fila, "Error: Cédula no encontrada")
+            raise HTTPException(status_code=404, detail=f"No se encontró ningún registro para la cédula {cedula}")
+
+        # 2. Obtener información de empresas
+        company_info_lookup = sheets_service.get_company_info_lookup()
+
+        # 3. Agrupar contratos por empresa canónica
+        contracts_by_canonical_company = defaultdict(list)
+        for record in records:
+            raw_company_name = record.get("Nombre de empresa", "Empresa No Especificada")
+            company_info = sheets_service.find_best_company_match(raw_company_name, company_info_lookup)
+
+            if company_info:
+                canonical_name = company_info["canonical_name"]
+            else:
+                canonical_name = raw_company_name
+
+            contracts_by_canonical_company[canonical_name].append(record)
+
+        # 4. Generar certificados
+        nombre_completo = records[0].get("Nombre del empleado", "Desconocido")
+        certificados_generados = 0
+        now = datetime.now()
+
+        for canonical_company_name, contracts in contracts_by_canonical_company.items():
+            try:
+                # Ordenar contratos
+                sorted_contracts = sorted(contracts, key=lambda x: x.get("Fecha de Ingreso", ""))
+
+                # Separar períodos
+                periodos_cerrados = []
+                periodo_activo = None
+
+                for contract in sorted_contracts:
+                    fecha_ingreso_raw = contract.get("Fecha de Ingreso", "")
+                    fecha_retiro_raw = contract.get("Fecha de Retiro", "")
+                    cargo_periodo = contract.get("Desc. Cargo", "No especificado")
+
+                    fecha_ingreso_formateada = format_date_str(fecha_ingreso_raw)
+
+                    if fecha_retiro_raw and str(fecha_retiro_raw).strip():
+                        fecha_retiro_formateada = format_date_str(fecha_retiro_raw)
+                        periodo = f"• Desde el {fecha_ingreso_formateada} hasta el {fecha_retiro_formateada} en el cargo de {cargo_periodo}"
+                        if periodo not in periodos_cerrados:
+                            periodos_cerrados.append(periodo)
+                    else:
+                        periodo_activo = {
+                            'fecha_ingreso': fecha_ingreso_formateada,
+                            'cargo': cargo_periodo
+                        }
+
+                latest_contract = sorted_contracts[-1]
+                cargo = latest_contract.get("Desc. Cargo", "No especificado")
+                fecha_retiro_ultimo = latest_contract.get("Fecha de Retiro", "")
+                contrato_activo = not (fecha_retiro_ultimo and str(fecha_retiro_ultimo).strip())
+
+                # Salario (usar el del sistema si está activo)
+                salario_final_num = ""
+                salario_final_letras = ""
+
+                if contrato_activo:
+                    salario_a_usar = latest_contract.get("SALARIO BASICO", "")
+                    if salario_a_usar:
+                        salario_final_num = salario_a_usar if '$' in str(salario_a_usar) else f"${salario_a_usar}"
+                        salario_final_letras = numero_a_letras(salario_final_num)
+
+                # Texto dinámico
+                cargos_pae = ["SUPERVISOR PROGRAMA", "MANIPULADORA ALIMENTOS", "COORDINADOR DE PROGRAMA", "MANIPULADORA"]
+                if cargo in cargos_pae:
+                    texto_adicional = "en el programa de alimentación escolar PAE."
+                else:
+                    texto_adicional = "."
+
+                # NIT
+                company_info = company_info_lookup.get(canonical_company_name)
+                if company_info:
+                    nit_empresa = company_info["nit"]
+                else:
+                    nit_empresa = "NIT no encontrado"
+
+                extra_margin = canonical_company_name == "CORPORACION HACIA UN VALLE SOLIDARIO"
+
+                # Preparar datos para plantilla (tipo de contrato por defecto)
+                datos_plantilla = {
+                    "nombre": nombre_completo,
+                    "cedula": cedula,
+                    "periodos_cerrados_html": "<br/>".join(periodos_cerrados) if periodos_cerrados else None,
+                    "periodo_activo_data": periodo_activo,
+                    "cargo": cargo,
+                    "salario_num": salario_final_num,
+                    "salario_letras": salario_final_letras,
+                    "texto_adicional": texto_adicional,
+                    "nombre_empresa": canonical_company_name,
+                    "nit_empresa": nit_empresa,
+                    "extra_top_margin": extra_margin,
+                    "tipo_contrato": "de Obra o Labor",  # Tipo por defecto
+                    "dias_texto": num2words(now.day, lang='es'),
+                    "dias_numero": str(now.day),
+                    "mes": now.strftime("%B"),
+                    "año": str(now.year)
+                }
+
+                # Generar PDF
+                pdf_bytes = generar_certificado_en_memoria(datos_plantilla)
+                company_safe = canonical_company_name.replace(' ', '_').replace(',', '').replace('/', '_')
+                pdf_filename = f"Certificado_{nombre_completo.replace(' ', '_')}_{company_safe}_{cedula}.pdf"
+
+                # Subir a Drive
+                file_info = drive_service.upload_pdf(pdf_bytes, pdf_filename, nombre_completo, cedula)
+                certificados_generados += 1
+
+            except Exception as e:
+                print(f"ERROR al generar certificado para {canonical_company_name}: {str(e)}")
+                continue
+
+        # 5. Obtener URL de la carpeta en Drive
+        folder_name = f"{nombre_completo.replace(' ', '_')}_{cedula}"
+        folder_url = f"https://drive.google.com/drive/folders/{drive_service.get_or_create_person_folder(nombre_completo, cedula)}"
+
+        # 6. Registrar en historial
+        sheets_service.registrar_historial(cedula, nombre_completo, folder_url, certificados_generados)
+
+        # 7. Actualizar estado
+        sheets_service.actualizar_estado_solicitud(fila, "Procesada")
+
+        return JSONResponse(content={
+            "status": "success",
+            "cedula": cedula,
+            "nombre": nombre_completo,
+            "certificados_generados": certificados_generados,
+            "folder_url": folder_url
+        })
+
+    except Exception as e:
+        print(f"ERROR en procesar_solicitud_automatica: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        sheets_service.actualizar_estado_solicitud(fila, f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/solicitudes-recientes")
+def obtener_solicitudes_recientes():
+    """
+    Endpoint para obtener las solicitudes procesadas recientemente.
+
+    Returns:
+        JSON con lista de solicitudes recientes
+    """
+    try:
+        solicitudes = sheets_service.obtener_solicitudes_recientes(limite=20)
+        return JSONResponse(content={"solicitudes": solicitudes})
+    except Exception as e:
+        print(f"ERROR en obtener_solicitudes_recientes: {str(e)}")
+        return JSONResponse(content={"solicitudes": []})

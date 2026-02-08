@@ -240,3 +240,72 @@ def find_best_company_match(raw_name: str, lookup_dict: Dict[str, Dict]) -> Opti
             return lookup_dict[matches[0]]
 
     return None
+
+# ============================================
+# FUNCIONES PARA MANEJO DE SOLICITUDES
+# ============================================
+
+def actualizar_estado_solicitud(fila: int, estado: str = "Procesada"):
+    """
+    Actualiza el estado de una solicitud en la columna Q.
+
+    Args:
+        fila: Número de fila en la hoja (1-indexed)
+        estado: Estado a marcar (default: "Procesada")
+    """
+    gc = get_gspread_client()
+    sh = gc.open_by_key(settings.SOLICITUDES_SHEET_ID)
+    ws = sh.worksheet("Solicitud Certificados")
+
+    # Columna Q es la 17
+    ws.update_cell(fila, 17, estado)
+
+def registrar_historial(cedula: str, nombre_completo: str, url_carpeta: str, num_certificados: int):
+    """
+    Registra el procesamiento en la hoja Historial_Procesamiento.
+
+    Args:
+        cedula: Número de cédula
+        nombre_completo: Nombre completo del empleado
+        url_carpeta: URL de la carpeta en Drive
+        num_certificados: Cantidad de certificados generados
+    """
+    from datetime import datetime
+
+    gc = get_gspread_client()
+    sh = gc.open_by_key(settings.SOLICITUDES_SHEET_ID)
+
+    # Intentar obtener o crear la hoja Historial_Procesamiento
+    try:
+        ws = sh.worksheet("Historial_Procesamiento")
+    except:
+        # Si no existe, crearla con encabezados
+        ws = sh.add_worksheet(title="Historial_Procesamiento", rows=1000, cols=5)
+        ws.append_row(["Fecha Procesamiento", "Cédula", "Nombre Completo", "URL Carpeta Drive", "Certificados Generados"])
+
+    # Agregar nueva fila
+    fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ws.append_row([fecha_actual, cedula, nombre_completo, url_carpeta, num_certificados])
+
+def obtener_solicitudes_recientes(limite: int = 20) -> List[Dict]:
+    """
+    Obtiene las solicitudes procesadas recientemente.
+
+    Args:
+        limite: Número máximo de resultados (default: 20)
+
+    Returns:
+        Lista de diccionarios con información de solicitudes procesadas
+    """
+    gc = get_gspread_client()
+    sh = gc.open_by_key(settings.SOLICITUDES_SHEET_ID)
+
+    try:
+        ws = sh.worksheet("Historial_Procesamiento")
+        records = ws.get_all_records()
+
+        # Retornar los últimos N registros en orden inverso (más recientes primero)
+        return list(reversed(records[-limite:]))
+    except:
+        # Si la hoja no existe aún, retornar lista vacía
+        return []

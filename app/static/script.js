@@ -142,3 +142,46 @@ async function verificarCedula() {
     submitBtn.textContent = 'Generar Certificados';
   }
 }
+
+// Función para cargar solicitudes recientes
+async function cargarSolicitudesRecientes() {
+  const container = document.getElementById('recentRequests');
+
+  try {
+    const response = await fetch('/solicitudes-recientes');
+    const data = await response.json();
+
+    if (data.solicitudes && data.solicitudes.length > 0) {
+      container.innerHTML = '';
+
+      data.solicitudes.forEach(solicitud => {
+        const div = document.createElement('div');
+        div.className = 'request-card';
+        div.innerHTML = `
+          <div class="request-info">
+            <span class="folder-icon">📁</span>
+            <div class="request-details">
+              <strong>${solicitud['Nombre Completo']}_${solicitud['Cédula']}</strong>
+              <span class="request-date">${solicitud['Fecha Procesamiento']}</span>
+            </div>
+          </div>
+          <a href="${solicitud['URL Carpeta Drive']}" target="_blank" class="drive-link">🔗 Ver carpeta en Drive</a>
+        `;
+        container.appendChild(div);
+      });
+    } else {
+      container.innerHTML = '<p class="no-requests">No hay solicitudes procesadas aún</p>';
+    }
+  } catch (error) {
+    console.error('Error al cargar solicitudes recientes:', error);
+    container.innerHTML = '<p class="error-requests">Error al cargar solicitudes</p>';
+  }
+}
+
+// Cargar solicitudes al iniciar la página
+document.addEventListener('DOMContentLoaded', () => {
+  cargarSolicitudesRecientes();
+
+  // Recargar cada 30 segundos
+  setInterval(cargarSolicitudesRecientes, 30000);
+});

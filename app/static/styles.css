@@ -203,3 +203,127 @@ button:disabled {
     border: 1px solid #eee;
   }
 }
+
+/* ============================================
+   ESTILOS PARA SOLICITUDES RECIENTES
+   ============================================ */
+
+.recent-requests-container {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 25px;
+  margin: 25px 0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.recent-requests-container h3 {
+  color: white;
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.recent-list {
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.request-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+  transition: all 0.2s ease;
+}
+
+.request-card:hover {
+  background: #e9ecef;
+  transform: translateX(5px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.request-card:last-child {
+  margin-bottom: 0;
+}
+
+.request-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.folder-icon {
+  font-size: 24px;
+}
+
+.request-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.request-details strong {
+  color: #333;
+  font-size: 14px;
+}
+
+.request-date {
+  color: #666;
+  font-size: 12px;
+}
+
+.drive-link {
+  background: #667eea;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.drive-link:hover {
+  background: #5568d3;
+}
+
+.loading,
+.no-requests,
+.error-requests {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}
+
+.error-requests {
+  color: #dc3545;
+}
+
+/* Scrollbar personalizada para la lista de solicitudes */
+.recent-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.recent-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.recent-list::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 4px;
+}
+
+.recent-list::-webkit-scrollbar-thumb:hover {
+  background: #5568d3;
+}
