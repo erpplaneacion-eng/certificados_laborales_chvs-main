@@ -598,11 +598,14 @@ def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)
         folder_name = f"{nombre_completo.replace(' ', '_')}_{cedula}"
         folder_url = f"https://drive.google.com/drive/folders/{drive_service.get_or_create_person_folder(nombre_completo, cedula)}"
 
-        # 6. Registrar en historial
-        sheets_service.registrar_historial(cedula, nombre_completo, folder_url, certificados_generados)
+        # 6 y 7. ESCRITURAS EN SHEETS DESHABILITADAS
+        # Google Apps Script se encargará de escribir en el Sheet
+        # sheets_service.registrar_historial(cedula, nombre_completo, folder_url, certificados_generados)
+        # sheets_service.actualizar_estado_solicitud(fila, "Procesada")
 
-        # 7. Actualizar estado
-        sheets_service.actualizar_estado_solicitud(fila, "Procesada")
+        print(f"✅ ÉXITO - Certificados generados para {nombre_completo} ({cedula})")
+        print(f"   - Certificados: {certificados_generados}")
+        print(f"   - Carpeta: {folder_url}")
 
         return JSONResponse(content={
             "status": "success",
@@ -613,11 +616,21 @@ def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)
         })
 
     except Exception as e:
-        print(f"ERROR en procesar_solicitud_automatica: {str(e)}")
+        print(f"❌ ERROR en procesar_solicitud_automatica: {str(e)}")
         import traceback
         traceback.print_exc()
-        sheets_service.actualizar_estado_solicitud(fila, f"Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+        # NO intentar escribir en Sheets en caso de error
+        # sheets_service.actualizar_estado_solicitud(fila, f"Error: {str(e)}")
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "error": str(e),
+                "cedula": cedula if 'cedula' in locals() else "N/A"
+            }
+        )
 
 @app.get("/solicitudes-recientes")
 def obtener_solicitudes_recientes():
