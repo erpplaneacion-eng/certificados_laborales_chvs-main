@@ -14,21 +14,13 @@
       <div class="search-container">
         <h3>🔍 Buscar Empleado (Nombre o Cédula)</h3>
         <div class="search-box">
-          <input 
-            type="text" 
-            id="searchInput" 
-            placeholder="Escriba el nombre o cédula para buscar..." 
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Escriba el nombre o cédula para buscar..."
             autocomplete="off"
           >
           <div id="searchResults" class="hidden"></div>
-        </div>
-      </div>
-
-      <!-- Sección de Solicitudes Procesadas Recientemente -->
-      <div class="recent-requests-container">
-        <h3>Hola Luisa, soy tu asistente aqui esta las solicitudes procesadas recientemente:</h3>
-        <div id="recentRequests" class="recent-list">
-          <p class="loading">Cargando solicitudes...</p>
         </div>
       </div>
 
@@ -75,6 +67,18 @@
 
         <button type="submit" id="submitBtn">Generar Certificados</button>
       </form>
+
+      <!-- Sección de Solicitudes Procesadas Recientemente -->
+      <div class="recent-requests-container">
+        <h3>
+          <span class="assistant-icon">🤖</span>
+          Hola Luisa, soy tu asistente
+        </h3>
+        <p class="assistant-subtitle">Aquí están las solicitudes procesadas recientemente:</p>
+        <div id="recentRequests" class="recent-list">
+          <p class="loading">Cargando solicitudes...</p>
+        </div>
+      </div>
     </div>
 
     <script src="/static/script.js"></script>
