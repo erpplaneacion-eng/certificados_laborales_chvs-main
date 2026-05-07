@@ -168,7 +168,7 @@ def generar_certificado_en_memoria(datos: dict) -> BytesIO:
         story.append(Paragraph("_______________________________", style_signature))
     # --- FIN DEL BLOQUE MODIFICADO ---
     
-    story.append(Paragraph("<b>LUISA FERNANDA ORTIZ ERAZO</b>", style_signature))
+    story.append(Paragraph("<b>YESENIA RAMIREZ ZEA</b>", style_signature))
     story.append(Paragraph("Departamento Gestión Humana", style_contact))
     story.append(Paragraph("Celular: 316 421 95 23", style_contact))
     story.append(Paragraph("Yumbo - Valle del Cauca", style_contact))
