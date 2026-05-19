@@ -632,6 +632,72 @@ def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)
             }
         )
 
+MESES_ES = {
+    1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril',
+    5: 'mayo', 6: 'junio', 7: 'julio', 8: 'agosto',
+    9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
+}
+
+@app.get("/generar-buga-2026")
+def generar_buga_2026(token: str = ""):
+    if token != "buga2026chvs":
+        raise HTTPException(status_code=403, detail="Token inválido")
+
+    empleados = [
+        {"cedula": "1105367277", "nombre": "ANDRADE TAPIA EMELY JHINET",       "ingreso": "20260418", "retiro": "20260509"},
+        {"cedula": "1002947174", "nombre": "OREJUELA VARGAS MONICA LICETH",     "ingreso": "20260422", "retiro": "20260508"},
+        {"cedula": "1143962980", "nombre": "CABRERA QUINTERO MONICA PAOLA",     "ingreso": "20260421", "retiro": "20260508"},
+        {"cedula": "1144187143", "nombre": "BURGOS RAMIREZ JIMENA",             "ingreso": "20260418", "retiro": "20260508"},
+        {"cedula": "1111667940", "nombre": "RIVAS MURILLO VANESSA FERNANDA",    "ingreso": "20260422", "retiro": "20260508"},
+    ]
+
+    now = datetime.now()
+    resultados = []
+
+    for emp in empleados:
+        try:
+            fecha_ingreso_obj = datetime.strptime(emp["ingreso"], "%Y%m%d")
+            fecha_retiro_obj  = datetime.strptime(emp["retiro"],  "%Y%m%d")
+
+            fecha_ingreso_fmt = f"{fecha_ingreso_obj.day} de {MESES_ES[fecha_ingreso_obj.month]} de {fecha_ingreso_obj.year}"
+            fecha_retiro_fmt  = f"{fecha_retiro_obj.day} de {MESES_ES[fecha_retiro_obj.month]} de {fecha_retiro_obj.year}"
+
+            periodo = f"• Desde el {fecha_ingreso_fmt} hasta el {fecha_retiro_fmt} en el cargo de AUXILIAR DE LOGISTICA"
+
+            datos_plantilla = {
+                "nombre":                emp["nombre"],
+                "cedula":                emp["cedula"],
+                "periodos_cerrados_html": periodo,
+                "periodo_activo_data":   None,
+                "cargo":                 "AUXILIAR DE LOGISTICA",
+                "salario_num":           "",
+                "salario_letras":        "",
+                "texto_adicional":       ".",
+                "nombre_empresa":        "UNION TEMPORAL BUGA 2026",
+                "nit_empresa":           "902023530-3",
+                "extra_top_margin":      False,
+                "tipo_contrato":         "de Obra o Labor",
+                "dias_texto":            num2words(now.day, lang='es'),
+                "dias_numero":           str(now.day),
+                "mes":                   MESES_ES[now.month],
+                "año":                   str(now.year),
+            }
+
+            pdf_bytes    = generar_certificado_en_memoria(datos_plantilla)
+            nombre_safe  = emp["nombre"].replace(" ", "_")
+            pdf_filename = f"Certificado_{nombre_safe}_UNION_TEMPORAL_BUGA_2026_{emp['cedula']}.pdf"
+
+            file_info = drive_service.upload_pdf(pdf_bytes, pdf_filename, emp["nombre"], emp["cedula"])
+            resultados.append({"cedula": emp["cedula"], "nombre": emp["nombre"], "link": file_info.get("webViewLink"), "status": "ok"})
+            print(f"✅ {emp['nombre']} - {file_info.get('webViewLink')}")
+
+        except Exception as e:
+            print(f"❌ Error con {emp['nombre']}: {e}")
+            resultados.append({"cedula": emp["cedula"], "nombre": emp["nombre"], "error": str(e), "status": "error"})
+
+    return JSONResponse(content={"procesados": len(resultados), "resultados": resultados})
+
+
 @app.get("/solicitudes-recientes")
 def obtener_solicitudes_recientes():
     """

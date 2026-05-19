@@ -21,18 +21,29 @@ def _get_cached_contracts(force_refresh: bool = False) -> List[Dict]:
     
     # Si no hay caché, o forzamos refresco, o el TTL expiró
     if (
-        _CONTRACTS_CACHE is None 
-        or force_refresh 
+        _CONTRACTS_CACHE is None
+        or force_refresh
         or (_LAST_CACHE_UPDATE and (now - _LAST_CACHE_UPDATE) > timedelta(minutes=CACHE_TTL_MINUTES))
     ):
         print("Refrescando caché de contratos desde Google Sheets...")
         try:
             gc = get_gspread_client()
+
             sh = gc.open_by_key(settings.SHEET_ID)
             ws = sh.worksheet("bd_contratacion")
-            _CONTRACTS_CACHE = ws.get_all_records()
+            all_records = ws.get_all_records()
+            print(f"  - bd_contratacion: {len(all_records)} registros.")
+
+            if settings.SHEET_ID_PLANTA:
+                sh2 = gc.open_by_key(settings.SHEET_ID_PLANTA)
+                ws2 = sh2.worksheet("Planta")
+                planta_records = ws2.get_all_records()
+                all_records += planta_records
+                print(f"  - Planta: {len(planta_records)} registros.")
+
+            _CONTRACTS_CACHE = all_records
             _LAST_CACHE_UPDATE = now
-            print(f"Caché actualizada con {len(_CONTRACTS_CACHE)} registros.")
+            print(f"Caché actualizada con {len(_CONTRACTS_CACHE)} registros en total.")
         except Exception as e:
             print(f"Error al actualizar caché: {e}")
             # Si falla y tenemos caché vieja, la devolvemos como fallback
