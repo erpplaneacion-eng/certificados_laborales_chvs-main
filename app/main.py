@@ -49,8 +49,14 @@ def search_people_endpoint(query: str):
     """
     if not query or len(query.strip()) < 2:
         return []
-    
-    return sheets_service.search_people(query)
+
+    try:
+        return sheets_service.search_people(query)
+    except Exception as e:
+        print(f"ERROR en /search: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 @app.post("/verificar-cedula")
 def verificar_cedula(cedula: str = Form(...)):

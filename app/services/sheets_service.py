@@ -81,11 +81,14 @@ def _get_cached_contracts(force_refresh: bool = False) -> List[Dict]:
             print(f"  - bd_contratacion: {len(all_records)} registros.")
 
             if settings.SHEET_ID_PLANTA:
-                sh2 = gc.open_by_key(settings.SHEET_ID_PLANTA)
-                ws2 = sh2.worksheet("Planta")
-                planta_records = [standardize_row_keys(row) for row in ws2.get_all_records()]
-                all_records += planta_records
-                print(f"  - Planta: {len(planta_records)} registros.")
+                try:
+                    sh2 = gc.open_by_key(settings.SHEET_ID_PLANTA)
+                    ws2 = sh2.worksheet("Planta")
+                    planta_records = [standardize_row_keys(row) for row in ws2.get_all_records()]
+                    all_records += planta_records
+                    print(f"  - Planta: {len(planta_records)} registros.")
+                except Exception as planta_err:
+                    print(f"  - ADVERTENCIA: No se pudo cargar hoja Planta: {planta_err}")
 
             _CONTRACTS_CACHE = all_records
             _LAST_CACHE_UPDATE = now

@@ -36,11 +36,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function performSearch(query) {
     const searchResults = document.getElementById('searchResults');
-    
+
     try {
         const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
+        if (!response.ok) {
+            console.error('Error en búsqueda, status:', response.status);
+            return;
+        }
         const results = await response.json();
-        
+        if (!Array.isArray(results)) {
+            console.error('Respuesta inesperada del servidor:', results);
+            return;
+        }
         displayResults(results);
     } catch (error) {
         console.error('Error en búsqueda:', error);

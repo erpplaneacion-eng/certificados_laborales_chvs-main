@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Railway__get-logs"
+    ]
+  }
+}
