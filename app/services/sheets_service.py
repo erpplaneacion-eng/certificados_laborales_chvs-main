@@ -6,6 +6,52 @@ from datetime import datetime, timedelta
 from app.google_clients import get_gspread_client
 from app.config import settings
 
+# --- NORMALIZACIÓN Y MAPEO DE ENCABEZADOS ---
+HEADER_NAME_MAP = {
+    "cedula": "cedula",
+    "cédula": "cedula",
+    "nombre del empleado": "nombre_del_empleado",
+    "nombre empleado": "nombre_del_empleado",
+    "nombre": "nombre_del_empleado",
+    "desc. cargo": "desc_cargo",
+    "desc cargo": "desc_cargo",
+    "desc": "desc_cargo",
+    "cargo": "desc_cargo",
+    "descripcion cargo": "desc_cargo",
+    "salario basico": "salario_basico",
+    "salario básico": "salario_basico",
+    "salario": "salario_basico",
+    "fecha de ingreso": "fecha_de_ingreso",
+    "fecha ingreso": "fecha_de_ingreso",
+    "fecha de retiro": "fecha_de_retiro",
+    "fecha retiro": "fecha_de_retiro",
+    "nombre de empresa": "nombre_de_empresa",
+    "nombre empresa": "nombre_de_empresa",
+    "empresa": "nombre_de_empresa",
+}
+
+
+def normalize_header_name(header: str) -> str:
+    if not header:
+        return ""
+    norm = unicodedata.normalize('NFKD', str(header))
+    norm = ''.join(c for c in norm if not unicodedata.combining(c))
+    norm = norm.lower().strip()
+    norm = re.sub(r'[\s_]+', ' ', norm)
+    return norm
+
+
+def standardize_row_keys(row: Dict) -> Dict:
+    normalized = {}
+    for key, value in row.items():
+        normalized_key = normalize_header_name(key)
+        normalized[HEADER_NAME_MAP.get(normalized_key, normalized_key)] = value
+    return normalized
+
+
+def normalize_cedula(value: str) -> str:
+    return re.sub(r'\D', '', str(value or ""))
+
 # --- CACHE GLOBAL ---
 _CONTRACTS_CACHE: Optional[List[Dict]] = None
 _LAST_CACHE_UPDATE: Optional[datetime] = None
@@ -31,13 +77,13 @@ def _get_cached_contracts(force_refresh: bool = False) -> List[Dict]:
 
             sh = gc.open_by_key(settings.SHEET_ID)
             ws = sh.worksheet("bd_contratacion")
-            all_records = ws.get_all_records()
+            all_records = [standardize_row_keys(row) for row in ws.get_all_records()]
             print(f"  - bd_contratacion: {len(all_records)} registros.")
 
             if settings.SHEET_ID_PLANTA:
                 sh2 = gc.open_by_key(settings.SHEET_ID_PLANTA)
                 ws2 = sh2.worksheet("Planta")
-                planta_records = ws2.get_all_records()
+                planta_records = [standardize_row_keys(row) for row in ws2.get_all_records()]
                 all_records += planta_records
                 print(f"  - Planta: {len(planta_records)} registros.")
 
@@ -57,11 +103,10 @@ def get_records_by_cedula(cedula: str) -> List[Dict]:
     rows = _get_cached_contracts()
     
     matching_records = []
-    cedula_str = str(cedula).strip()
+    cedula_norm = normalize_cedula(cedula)
     
     for row in rows:
-        # Convertir a string y limpiar ambos lados para comparación segura
-        if str(row.get("cedula", "")).strip() == cedula_str:
+        if normalize_cedula(row.get("cedula", "")) == cedula_norm and cedula_norm:
             matching_records.append(row)
     
     return matching_records
@@ -73,12 +118,13 @@ def search_people(query: str) -> List[Dict[str, str]]:
     """
     rows = _get_cached_contracts()
     query_norm = remove_accents(query).upper().strip()
+    query_digits = normalize_cedula(query_norm)
     
     results = {} # Usar dict para unicidad por cédula
     
     for row in rows:
-        nombre = str(row.get("Nombre del empleado", "")).strip()
-        cedula = str(row.get("cedula", "")).strip()
+        nombre = str(row.get("nombre_del_empleado", "")).strip()
+        cedula = normalize_cedula(row.get("cedula", ""))
         
         if not nombre or not cedula:
             continue
@@ -86,7 +132,7 @@ def search_people(query: str) -> List[Dict[str, str]]:
         nombre_norm = remove_accents(nombre).upper()
         
         # Coincidencia por cédula o nombre
-        if query_norm in cedula or query_norm in nombre_norm:
+        if (query_digits and query_digits in cedula) or (query_norm and query_norm in nombre_norm):
             results[cedula] = {"nombre": nombre, "cedula": cedula}
             
             # Limitar a 20 resultados para no saturar la UI

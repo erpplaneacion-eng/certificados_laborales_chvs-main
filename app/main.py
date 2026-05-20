@@ -65,12 +65,12 @@ def verificar_cedula(cedula: str = Form(...)):
     
     # Ordenar por fecha de ingreso para identificar el contrato más reciente
     # Nota: Asumimos formato de fecha que se puede ordenar lexicográficamente
-    sorted_records = sorted(records, key=lambda x: x.get("Fecha de Ingreso", ""), reverse=True)
+    sorted_records = sorted(records, key=lambda x: x.get("fecha_de_ingreso", ""), reverse=True)
     latest_record = sorted_records[0]
     
     # Extraer información del contrato más reciente
-    ultimo_cargo = latest_record.get("Desc. Cargo", "No especificado")
-    fecha_retiro = latest_record.get("Fecha de Retiro", "")
+    ultimo_cargo = latest_record.get("desc_cargo", "No especificado")
+    fecha_retiro = latest_record.get("fecha_de_retiro", "")
     
     # Determinar si el contrato está activo (Fecha de Retiro vacía)
     contrato_activo = not (fecha_retiro and str(fecha_retiro).strip())
@@ -156,7 +156,7 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
     contracts_by_canonical_company = defaultdict(list)
     for record in records:
         # Obtener nombre crudo de la empresa desde bd_contratacion
-        raw_company_name = record.get("Nombre de empresa", "Empresa No Especificada")
+        raw_company_name = record.get("nombre_de_empresa", "Empresa No Especificada")
         
         # Buscar información normalizada de la empresa (usando Smart Matching)
         company_info = sheets_service.find_best_company_match(raw_company_name, company_info_lookup)
@@ -177,19 +177,19 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
     for canonical_company_name, contracts in contracts_by_canonical_company.items():
         try:
             # Obtener nombre del empleado (usar el del primer contrato)
-            nombre_completo = contracts[0].get("Nombre del empleado", "Desconocido")
+            nombre_completo = contracts[0].get("nombre_del_empleado", "Desconocido")
             
             # Separar periodos activos de los cerrados
             periodos_cerrados = []
             periodo_activo = None
             
             # Ordenar contratos por fecha de ingreso para asegurar un historial cronológico
-            sorted_contracts = sorted(contracts, key=lambda x: x.get("Fecha de Ingreso", ""))
+            sorted_contracts = sorted(contracts, key=lambda x: x.get("fecha_de_ingreso", ""))
 
             for contract in sorted_contracts:
-                fecha_ingreso_raw = contract.get("Fecha de Ingreso", "")
-                fecha_retiro_raw = contract.get("Fecha de Retiro", "")
-                cargo_periodo = contract.get("Desc. Cargo", "No especificado")
+                fecha_ingreso_raw = contract.get("fecha_de_ingreso", "")
+                fecha_retiro_raw = contract.get("fecha_de_retiro", "")
+                cargo_periodo = contract.get("desc_cargo", "No especificado")
                 
                 fecha_ingreso_formateada = format_date_str(fecha_ingreso_raw)
                 
@@ -209,10 +209,10 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
             
             # Usar el último contrato de la lista ordenada para determinar los detalles finales
             latest_contract = sorted_contracts[-1]
-            cargo = latest_contract.get("Desc. Cargo", "No especificado")
+            cargo = latest_contract.get("desc_cargo", "No especificado")
             
             # Determinar si el último contrato está activo
-            fecha_retiro_ultimo = latest_contract.get("Fecha de Retiro", "")
+            fecha_retiro_ultimo = latest_contract.get("fecha_de_retiro", "")
             contrato_activo = not (fecha_retiro_ultimo and str(fecha_retiro_ultimo).strip())
             
             # Implementar lógica de salario condicional
@@ -221,7 +221,7 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
             
             if contrato_activo:
                 # Usar salario manual si fue proporcionado, sino usar el del sistema
-                salario_a_usar = salario_manual if salario_manual else latest_contract.get("SALARIO BASICO", "")
+                salario_a_usar = salario_manual if salario_manual else latest_contract.get("salario_basico", "")
                 
                 if salario_a_usar:
                     salario_final_num = salario_a_usar if '$' in str(salario_a_usar) else f"${salario_a_usar}"
@@ -244,7 +244,7 @@ def generate_pdf_and_upload(cedula: str = Form(...), salario_manual: Optional[st
                 # Fallback: buscar por cualquier contrato del grupo
                 nit_empresa = "NIT no encontrado"
                 for contract in contracts:
-                    raw_name = contract.get("Nombre de empresa", "")
+                    raw_name = contract.get("nombre_de_empresa", "")
                     contract_info = company_info_lookup.get(raw_name)
                     if contract_info:
                         nit_empresa = contract_info["nit"]
@@ -488,7 +488,7 @@ def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)
         # 3. Agrupar contratos por empresa canónica
         contracts_by_canonical_company = defaultdict(list)
         for record in records:
-            raw_company_name = record.get("Nombre de empresa", "Empresa No Especificada")
+            raw_company_name = record.get("nombre_de_empresa", "Empresa No Especificada")
             company_info = sheets_service.find_best_company_match(raw_company_name, company_info_lookup)
 
             if company_info:
@@ -499,23 +499,23 @@ def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)
             contracts_by_canonical_company[canonical_name].append(record)
 
         # 4. Generar certificados
-        nombre_completo = records[0].get("Nombre del empleado", "Desconocido")
+        nombre_completo = records[0].get("nombre_del_empleado", "Desconocido")
         certificados_generados = 0
         now = datetime.now()
 
         for canonical_company_name, contracts in contracts_by_canonical_company.items():
             try:
                 # Ordenar contratos
-                sorted_contracts = sorted(contracts, key=lambda x: x.get("Fecha de Ingreso", ""))
+                sorted_contracts = sorted(contracts, key=lambda x: x.get("fecha_de_ingreso", ""))
 
                 # Separar períodos
                 periodos_cerrados = []
                 periodo_activo = None
 
                 for contract in sorted_contracts:
-                    fecha_ingreso_raw = contract.get("Fecha de Ingreso", "")
-                    fecha_retiro_raw = contract.get("Fecha de Retiro", "")
-                    cargo_periodo = contract.get("Desc. Cargo", "No especificado")
+                    fecha_ingreso_raw = contract.get("fecha_de_ingreso", "")
+                    fecha_retiro_raw = contract.get("fecha_de_retiro", "")
+                    cargo_periodo = contract.get("desc_cargo", "No especificado")
 
                     fecha_ingreso_formateada = format_date_str(fecha_ingreso_raw)
 
@@ -531,8 +531,8 @@ def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)
                         }
 
                 latest_contract = sorted_contracts[-1]
-                cargo = latest_contract.get("Desc. Cargo", "No especificado")
-                fecha_retiro_ultimo = latest_contract.get("Fecha de Retiro", "")
+                cargo = latest_contract.get("desc_cargo", "No especificado")
+                fecha_retiro_ultimo = latest_contract.get("fecha_de_retiro", "")
                 contrato_activo = not (fecha_retiro_ultimo and str(fecha_retiro_ultimo).strip())
 
                 # Salario (usar el del sistema si está activo)
@@ -540,7 +540,7 @@ def procesar_solicitud_automatica(cedula: str = Form(...), fila: int = Form(...)
                 salario_final_letras = ""
 
                 if contrato_activo:
-                    salario_a_usar = latest_contract.get("SALARIO BASICO", "")
+                    salario_a_usar = latest_contract.get("salario_basico", "")
                     if salario_a_usar:
                         salario_final_num = salario_a_usar if '$' in str(salario_a_usar) else f"${salario_a_usar}"
                         salario_final_letras = numero_a_letras(salario_final_num)
